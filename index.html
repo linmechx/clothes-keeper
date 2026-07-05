@@ -616,7 +616,12 @@
         <button class="del" data-del="${i.id}">✕</button>
       </div>`).join('');
     grid.querySelectorAll('[data-del]').forEach(b=>{
-      b.onclick = (e)=>{ e.stopPropagation(); const id=b.dataset.del; items = items.filter(i=>i.id!==id); removeItemStorage(id); renderClosetGrid(); renderStylingPicker(); };
+      b.onclick = (e)=>{
+        e.stopPropagation();
+        const id=b.dataset.del;
+        if(!confirm('이 옷을 삭제하시겠습니까?')) return;
+        items = items.filter(i=>i.id!==id); removeItemStorage(id); renderClosetGrid(); renderStylingPicker();
+      };
     });
   }
 
@@ -994,7 +999,11 @@
       });
     });
     grid.querySelectorAll('[data-del]').forEach(b=>{
-      b.onclick = (e)=>{ e.stopPropagation(); favorites = favorites.filter(f=>f.id!==b.dataset.del); saveAll(); renderFavGrid(); };
+      b.onclick = (e)=>{
+        e.stopPropagation();
+        if(!confirm('이 즐겨찾기를 삭제하시겠습니까?')) return;
+        favorites = favorites.filter(f=>f.id!==b.dataset.del); saveAll(); renderFavGrid();
+      };
     });
   }
 
@@ -1053,7 +1062,10 @@
           <div style="flex:1; font-size:13px; font-weight:700;">${log.title}</div>
           <button class="tool-btn" id="calDayRemove">삭제</button>
         </div>`;
-      $('#calDayRemove').onclick = ()=>{ delete calendarLog[key]; saveAll(); renderCalendar(); $('#overlayCalDay').classList.remove('show'); toast('기록을 삭제했어요'); };
+      $('#calDayRemove').onclick = ()=>{
+        if(!confirm('이 날의 기록을 삭제하시겠습니까?')) return;
+        delete calendarLog[key]; saveAll(); renderCalendar(); $('#overlayCalDay').classList.remove('show'); toast('기록을 삭제했어요');
+      };
     } else {
       cur.innerHTML = `<div class="hint" style="margin-bottom:10px;">아직 기록된 코디가 없어요. 즐겨찾기에서 골라주세요.</div>`;
     }
@@ -1091,7 +1103,9 @@
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).then(reg=>{
+      reg.update();
+    }).catch(()=>{});
   });
 }
 </script>
