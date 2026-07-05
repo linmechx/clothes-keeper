@@ -82,12 +82,7 @@
   .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 16px 100px;}
   .card{
     position:relative; aspect-ratio:1/1.15; border-radius:var(--radius-sm);
-    background:
-      linear-gradient(45deg, #eee 25%, transparent 25%) -6px 0/12px 12px,
-      linear-gradient(-45deg, #eee 25%, transparent 25%) -6px 0/12px 12px,
-      linear-gradient(45deg, transparent 75%, #eee 75%) -6px 0/12px 12px,
-      linear-gradient(-45deg, transparent 75%, #eee 75%) -6px 0/12px 12px,
-      var(--white);
+    background:var(--white);
     border:1px solid var(--line); overflow:hidden; cursor:pointer;
   }
   .card img{width:100%; height:100%; object-fit:contain; padding:8px;}
@@ -440,29 +435,86 @@
     clearTimeout(t._timer); t._timer = setTimeout(()=>t.classList.remove('show'), 1800);
   }
 
-  /* ---------------- storage ---------------- */
+  /* ---------------- storage ----------------
+     각 옷 이미지는 용량이 커서 하나의 키에 다 넣으면 5MB 한도를 넘어요.
+     그래서 옷은 item:<id> 개별 키에 저장하고,
+     메타(옷 목록 순서/카테고리, 즐겨찾기, 캘린더)는 closet-meta 키에 저장해요. */
   async function loadAll(){
+    // 1) 메타 로드
+    let meta = null;
     try{
-      const r = await window.storage.get('closet-data');
-      if(r && r.value){
-        const d = JSON.parse(r.value);
-        items = d.items||[];
-        favorites = d.favorites||[];
-        calendarLog = d.calendarLog||{};
-        // migration: old single "top" category -> default to top_short
-        let migrated = false;
-        items.forEach(i=>{ if(i.category==='top'){ i.category='top_short'; migrated=true; } });
-        if(migrated){ saveAll(); toast('기존 상의 항목을 "반팔"로 옮겼어요. 필요하면 옷장에서 긴팔로 다시 등록해주세요'); }
+      const r = await window.storage.get('closet-meta');
+      if(r && r.value) meta = JSON.parse(r.value);
+    }catch(e){}
+
+    if(meta){
+      favorites = meta.favorites || [];
+      calendarLog = meta.calendarLog || {};
+      const index = meta.itemIndex || []; // [{id, category}]
+      items = [];
+      for(const entry of index){
+        try{
+          const ir = await window.storage.get('item:'+entry.id);
+          if(ir && ir.value){
+            items.push({id: entry.id, category: entry.category, src: ir.value});
+          }
+        }catch(e){}
       }
-    }catch(e){ /* first run: no data yet */ }
+    } else {
+      // 2) 예전(단일 키) 데이터가 있으면 새 구조로 이전
+      try{
+        const old = await window.storage.get('closet-data');
+        if(old && old.value){
+          const d = JSON.parse(old.value);
+          items = d.items || [];
+          favorites = d.favorites || [];
+          calendarLog = d.calendarLog || {};
+        }
+      }catch(e){}
+    }
+
+    // 3) 카테고리 마이그레이션(상의 -> 반팔)
+    let migrated = false;
+    items.forEach(i=>{ if(i.category==='top'){ i.category='top_short'; migrated=true; } });
+
+    // 4) 개별 키 구조로 저장(최초 1회 이전 포함)
+    if(!meta || migrated){
+      for(const it of items){
+        try{ await window.storage.set('item:'+it.id, it.src); }catch(e){}
+      }
+      saveMeta();
+    }
   }
+
+  function saveMeta(){
+    const meta = {
+      itemIndex: items.map(i=>({id:i.id, category:i.category})),
+      favorites, calendarLog
+    };
+    return window.storage.set('closet-meta', JSON.stringify(meta));
+  }
+
+  // 옷 하나를 추가로 저장(개별 키 + 메타 갱신)
+  async function persistItem(item){
+    try{
+      await window.storage.set('item:'+item.id, item.src);
+      await saveMeta();
+      return true;
+    }catch(e){ return false; }
+  }
+  // 옷 하나 삭제
+  async function removeItemStorage(id){
+    try{ await window.storage.delete('item:'+id); }catch(e){}
+    try{ await saveMeta(); }catch(e){}
+  }
+
   let saveTimer = null;
   function saveAll(){
+    // 메타(즐겨찾기/캘린더/순서)만 저장 — 이미지는 개별 키에 이미 저장됨
     clearTimeout(saveTimer);
     saveTimer = setTimeout(async ()=>{
-      try{
-        await window.storage.set('closet-data', JSON.stringify({items, favorites, calendarLog}));
-      }catch(e){ toast('저장에 실패했어요 (용량 초과일 수 있어요)'); }
+      try{ await saveMeta(); }
+      catch(e){ toast('저장에 실패했어요'); }
     }, 250);
   }
 
@@ -564,7 +616,7 @@
         <button class="del" data-del="${i.id}">✕</button>
       </div>`).join('');
     grid.querySelectorAll('[data-del]').forEach(b=>{
-      b.onclick = (e)=>{ e.stopPropagation(); const id=b.dataset.del; items = items.filter(i=>i.id!==id); saveAll(); renderClosetGrid(); renderStylingPicker(); };
+      b.onclick = (e)=>{ e.stopPropagation(); const id=b.dataset.del; items = items.filter(i=>i.id!==id); removeItemStorage(id); renderClosetGrid(); renderStylingPicker(); };
     });
   }
 
@@ -585,18 +637,22 @@
 
   async function handleFileChosen(file){
     if(!file) return;
-    const img = await fileToImage(file);
-    rawUploadImg = img;
-    $('#addStep1').style.display='none';
-    $('#addStep2').style.display='block';
-    setupEditor(img);
+    try{
+      const img = await fileToImage(file);
+      rawUploadImg = img;
+      $('#addStep1').style.display='none';
+      $('#addStep2').style.display='block';
+      setupEditor(img);
+    }catch(err){
+      toast('이 사진을 열 수 없어요. 다른 사진을 선택하거나, 갤러리에서 JPG/PNG로 저장 후 다시 시도해주세요');
+    }
   }
   $('#fileCamera').addEventListener('change', e=>handleFileChosen(e.target.files[0]));
   $('#fileGallery').addEventListener('change', e=>handleFileChosen(e.target.files[0]));
   $('#btnBackStep1').onclick = ()=>{ $('#addStep1').style.display='block'; $('#addStep2').style.display='none'; };
 
   function setupEditor(img){
-    const srcCanvas = drawToCanvas(img, 640);
+    const srcCanvas = drawToCanvas(img, 512);
     const canvas = $('#editCanvas');
     canvas.width = srcCanvas.width; canvas.height = srcCanvas.height;
     const ctx = canvas.getContext('2d');
@@ -688,11 +744,17 @@
     canvas.onpointerup = end; canvas.onpointerleave = end; canvas.onpointercancel = end;
   }
 
-  $('#btnSaveItem').onclick = ()=>{
+  $('#btnSaveItem').onclick = async ()=>{
     if(!editState) return;
     const dataURL = canvasToDataURL(editState.canvas, 'image/png');
-    items.push({id:uid(), category: pendingCategory, src: dataURL});
-    saveAll();
+    const item = {id:uid(), category: pendingCategory, src: dataURL};
+    items.push(item); // 메타에 포함되도록 먼저 추가
+    const ok = await persistItem(item);
+    if(!ok){
+      items.pop(); // 실패 시 롤백
+      toast('저장 실패: 사진 용량이 너무 커요. 배경을 더 지우거나 다른 사진을 써보세요');
+      return;
+    }
     $('#overlayAdd').classList.remove('show');
     renderClosetChips(); renderClosetGrid(); renderStylingPicker();
     toast('옷장에 저장했어요');
@@ -810,13 +872,16 @@
 
   $('#fileMyPhoto').addEventListener('change', async (e)=>{
     const file = e.target.files[0]; if(!file) return;
-    const img = await fileToImage(file);
-    const c = drawToCanvas(img, 900);
-    const dataURL = canvasToDataURL(c, 'image/jpeg', 0.82);
-    // remove existing photo layer
-    stageLayers = stageLayers.filter(l=>l.type!=='photo');
-    await addLayer('photo', dataURL, {xPct:50, yPct:50, wPct:100});
-    saveDraft();
+    try{
+      const img = await fileToImage(file);
+      const c = drawToCanvas(img, 900);
+      const dataURL = canvasToDataURL(c, 'image/jpeg', 0.82);
+      stageLayers = stageLayers.filter(l=>l.type!=='photo');
+      await addLayer('photo', dataURL, {xPct:50, yPct:50, wPct:100});
+      saveDraft();
+    }catch(err){
+      toast('이 사진을 열 수 없어요. 다른 사진을 선택하거나, JPG/PNG로 저장 후 다시 시도해주세요');
+    }
     e.target.value = '';
   });
 
