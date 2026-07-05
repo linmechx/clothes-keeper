@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="내옷장">
 <title>내 옷장</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/heic2any/0.0.1/index.min.js"></script>
 <style>
   :root{
     --paper:#FAF6F0;
@@ -272,7 +273,7 @@
               <div>먼저 내 사진을 등록하면<br>드래그로 코디를 만들 수 있어요</div>
               <label class="btn btn-primary" id="btnAddMyPhoto" style="width:auto; padding:10px 18px; margin-top:6px; cursor:pointer;">
                 내 사진 등록
-                <input type="file" accept="image/*" id="fileMyPhoto" style="display:none;">
+                <input type="file" accept="image/*,.heic,.heif" id="fileMyPhoto" style="display:none;">
               </label>
             </div>
           </div>
@@ -339,8 +340,8 @@
         <div id="addStep1">
           <label class="field-label">사진</label>
           <div class="upload-row">
-            <label><span class="ic">📷</span>카메라로 찍기<input type="file" accept="image/*" capture="environment" id="fileCamera"></label>
-            <label><span class="ic">🖼️</span>사진 앨범에서<input type="file" accept="image/*" id="fileGallery"></label>
+            <label><span class="ic">📷</span>카메라로 찍기<input type="file" accept="image/*,.heic,.heif" capture="environment" id="fileCamera"></label>
+            <label><span class="ic">🖼️</span>사진 앨범에서<input type="file" accept="image/*,.heic,.heif" id="fileGallery"></label>
           </div>
         </div>
 
@@ -519,13 +520,38 @@
   }
 
   /* ---------------- image helpers ---------------- */
-  function fileToImage(file){
+  function decodeBlobToImage(blob){
     return new Promise((resolve,reject)=>{
       const reader = new FileReader();
       reader.onload = () => { const img = new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src = reader.result; };
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(blob);
     });
+  }
+  async function heicToJpegBlob(file){
+    const result = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 });
+    return Array.isArray(result) ? result[0] : result;
+  }
+  async function fileToImage(file){
+    const name = file.name || '';
+    const looksLikeHeic = /image\/hei[cf]/i.test(file.type||'') || /\.hei[cf]$/i.test(name);
+
+    if(looksLikeHeic && typeof heic2any === 'function'){
+      try{
+        const jpegBlob = await heicToJpegBlob(file);
+        return await decodeBlobToImage(jpegBlob);
+      }catch(e){ /* HEIC 변환 실패 시 일반 디코딩도 시도해봄 */ }
+    }
+    try{
+      return await decodeBlobToImage(file);
+    }catch(e){
+      // 파일이 heic/heif인데 확장자나 타입이 정확히 표시되지 않은 경우(일부 안드로이드 기종)를 위한 마지막 시도
+      if(typeof heic2any === 'function'){
+        const jpegBlob = await heicToJpegBlob(file);
+        return await decodeBlobToImage(jpegBlob);
+      }
+      throw e;
+    }
   }
   function drawToCanvas(img, maxDim){
     let w = img.width, h = img.height;
@@ -749,15 +775,38 @@
     canvas.onpointerup = end; canvas.onpointerleave = end; canvas.onpointercancel = end;
   }
 
+  function downscaleCanvasKeepAlpha(canvas, scale){
+    const w = Math.max(1, Math.round(canvas.width*scale));
+    const h = Math.max(1, Math.round(canvas.height*scale));
+    const c = document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(canvas,0,0,w,h);
+    return c;
+  }
+  // 저장 용량이 5MB 한도를 넘으면, 실패로 끝내지 않고 자동으로 이미지를 줄여서 다시 시도
+  function exportItemDataURL(canvas){
+    const MAX_CHARS = 4 * 1024 * 1024; // 여유를 두고 4MB
+    let c = canvas;
+    let url = canvasToDataURL(c, 'image/png');
+    let scale = 1;
+    let attempts = 0;
+    while(url.length > MAX_CHARS && attempts < 6){
+      scale *= 0.72;
+      c = downscaleCanvasKeepAlpha(canvas, scale);
+      url = canvasToDataURL(c, 'image/png');
+      attempts++;
+    }
+    return url;
+  }
+
   $('#btnSaveItem').onclick = async ()=>{
     if(!editState) return;
-    const dataURL = canvasToDataURL(editState.canvas, 'image/png');
+    const dataURL = exportItemDataURL(editState.canvas);
     const item = {id:uid(), category: pendingCategory, src: dataURL};
     items.push(item); // 메타에 포함되도록 먼저 추가
     const ok = await persistItem(item);
     if(!ok){
       items.pop(); // 실패 시 롤백
-      toast('저장 실패: 사진 용량이 너무 커요. 배경을 더 지우거나 다른 사진을 써보세요');
+      toast('저장 실패: 사진 용량이 너무 커요. 다른 사진을 써보세요');
       return;
     }
     $('#overlayAdd').classList.remove('show');
