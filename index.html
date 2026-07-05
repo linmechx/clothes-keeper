@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#2B2622">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="내옷장">
+<title>내 옷장</title>
+<style>
+  :root{
+    --paper:#FAF6F0;
+    --paper-2:#F1EAE0;
+    --ink:#2B2622;
+    --ink-soft:#6E655C;
+    --line:#DCD2C4;
+    --thread:#8A6E52;
+    --sage:#6E7A5C;
+    --sage-soft:#E4E9DB;
+    --blush:#D98C86;
+    --blush-soft:#F6E3DF;
+    --lavender:#8C7FA6;
+    --lavender-soft:#EAE4F1;
+    --white:#FFFFFF;
+    --radius:18px;
+    --radius-sm:10px;
+    --shadow: 0 6px 20px rgba(43,38,34,0.08);
+    font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+  html,body{margin:0; padding:0; background:var(--paper-2); color:var(--ink); height:100%; overflow:hidden;}
+  .display{font-family: "Georgia", "Noto Serif KR", serif; letter-spacing:-0.01em;}
+
+  #phone{
+    max-width:460px; margin:0 auto; height:100vh; height:100dvh;
+    background:var(--paper);
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column;
+    box-shadow: 0 0 40px rgba(0,0,0,0.12);
+  }
+
+  header.top{
+    padding:18px 20px 14px; flex:0 0 auto;
+    border-bottom:1px dashed var(--line);
+    position:relative;
+  }
+  header.top .eyebrow{font-size:11px; letter-spacing:0.12em; color:var(--thread); font-weight:600; text-transform:uppercase;}
+  header.top h1{margin:2px 0 0; font-size:24px; font-weight:600;}
+  header.top .sub{font-size:12.5px; color:var(--ink-soft); margin-top:2px;}
+
+  main{flex:1 1 auto; min-height:0; overflow-y:auto; position:relative; -webkit-overflow-scrolling:touch;}
+  .screen{display:none; height:100%; flex-direction:column; overflow:hidden; position:relative;}
+  .screen.active{display:flex;}
+
+  /* ---- Tab bar ---- */
+  nav.tabbar{
+    flex:0 0 auto; display:flex; border-top:1px solid var(--line);
+    background:var(--paper); padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  nav.tabbar button{
+    flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center;
+    gap:3px; padding:6px 0; color:var(--ink-soft); font-size:11px; font-weight:600; cursor:pointer;
+  }
+  nav.tabbar button .ic{font-size:19px; line-height:1;}
+  nav.tabbar button.active{color:var(--sage);}
+
+  /* ---- Category chips ---- */
+  .chiprow{display:flex; gap:8px; overflow-x:auto; padding:14px 16px 4px; scrollbar-width:none;}
+  .chiprow::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto; display:flex; align-items:center; gap:5px;
+    padding:8px 13px; border-radius:999px; background:var(--white); border:1px solid var(--line);
+    font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; white-space:nowrap;
+  }
+  .chip.active{background:var(--sage); border-color:var(--sage); color:var(--white);}
+
+  /* ---- Closet grid ---- */
+  .grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:14px 16px 100px;}
+  .card{
+    position:relative; aspect-ratio:1/1.15; border-radius:var(--radius-sm);
+    background:
+      linear-gradient(45deg, #eee 25%, transparent 25%) -6px 0/12px 12px,
+      linear-gradient(-45deg, #eee 25%, transparent 25%) -6px 0/12px 12px,
+      linear-gradient(45deg, transparent 75%, #eee 75%) -6px 0/12px 12px,
+      linear-gradient(-45deg, transparent 75%, #eee 75%) -6px 0/12px 12px,
+      var(--white);
+    border:1px solid var(--line); overflow:hidden; cursor:pointer;
+  }
+  .card img{width:100%; height:100%; object-fit:contain; padding:8px;}
+  .card .tag{
+    position:absolute; bottom:5px; left:5px; font-size:9.5px; font-weight:700; color:var(--thread);
+    background:rgba(255,255,255,0.85); padding:2px 6px; border-radius:6px;
+  }
+  .card .del{
+    position:absolute; top:4px; right:4px; width:20px; height:20px; border-radius:50%;
+    background:rgba(43,38,34,0.55); color:#fff; border:none; font-size:12px; display:flex;
+    align-items:center; justify-content:center; cursor:pointer;
+  }
+  .empty{
+    margin:40px 24px; text-align:center; color:var(--ink-soft); font-size:13px; line-height:1.6;
+  }
+  .empty .big{font-size:34px; display:block; margin-bottom:10px;}
+
+  .fab{
+    position:absolute; right:18px; bottom:18px; width:54px; height:54px; border-radius:50%;
+    background:var(--ink); color:#fff; border:none; font-size:26px; box-shadow:var(--shadow);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:5;
+  }
+
+  /* ---- Modal ---- */
+  .overlay{
+    position:absolute; inset:0; background:rgba(43,38,34,0.45); z-index:50;
+    display:none; align-items:flex-end;
+  }
+  .overlay.show{display:flex;}
+  .sheet{
+    background:var(--paper); width:100%; max-height:92%; border-radius:22px 22px 0 0;
+    display:flex; flex-direction:column; box-shadow:0 -10px 30px rgba(0,0,0,0.2);
+  }
+  .sheet .sheet-head{
+    padding:14px 18px 10px; border-bottom:1px dashed var(--line); display:flex; align-items:center; justify-content:space-between;
+  }
+  .sheet .sheet-head .grabber{width:36px; height:4px; background:var(--line); border-radius:4px; margin:0 auto 8px; position:absolute; left:50%; top:8px; transform:translateX(-50%);}
+  .sheet .sheet-head h2{font-size:16px; margin:0; font-weight:700;}
+  .sheet .sheet-head button{background:none; border:none; font-size:14px; color:var(--ink-soft); cursor:pointer; padding:6px;}
+  .sheet .sheet-body{padding:16px 18px calc(20px + env(safe-area-inset-bottom)); overflow-y:auto;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:12px 16px; border-radius:12px; border:none; font-size:14px; font-weight:700; cursor:pointer;
+    width:100%;
+  }
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-soft{background:var(--white); color:var(--ink); border:1px solid var(--line);}
+  .btn-sage{background:var(--sage); color:#fff;}
+  .btn-row{display:flex; gap:8px; margin-top:8px;}
+  .btn-row .btn{flex:1;}
+
+  label.field-label{font-size:12px; font-weight:700; color:var(--ink-soft); display:block; margin:14px 0 8px;}
+  .cat-select{display:flex; flex-wrap:wrap; gap:7px;}
+  .cat-select .chip{flex:0 0 auto;}
+
+  input[type=file]{display:none;}
+  .upload-row{display:flex; gap:8px; margin-top:6px;}
+  .upload-row label{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
+    border:1.5px dashed var(--line); border-radius:14px; padding:18px 8px; cursor:pointer;
+    font-size:12.5px; font-weight:600; color:var(--ink-soft);
+  }
+  .upload-row label .ic{font-size:24px;}
+
+  /* ---- Background removal editor ---- */
+  .editor-canvas-wrap{
+    position:relative; background:
+      linear-gradient(45deg, #ddd 25%, transparent 25%) -8px 0/16px 16px,
+      linear-gradient(-45deg, #ddd 25%, transparent 25%) -8px 0/16px 16px,
+      linear-gradient(45deg, transparent 75%, #ddd 75%) -8px 0/16px 16px,
+      linear-gradient(-45deg, transparent 75%, #ddd 75%) -8px 0/16px 16px, #f4f4f4;
+    border-radius:14px; overflow:hidden; touch-action:none; margin-top:8px;
+  }
+  .editor-canvas-wrap canvas{width:100%; display:block;}
+  .tool-row{display:flex; gap:6px; margin-top:10px; overflow-x:auto;}
+  .tool-btn{
+    flex:0 0 auto; padding:8px 12px; border-radius:10px; border:1px solid var(--line);
+    background:var(--white); font-size:12px; font-weight:700; color:var(--ink-soft); cursor:pointer;
+  }
+  .tool-btn.active{background:var(--lavender); border-color:var(--lavender); color:#fff;}
+  .slider-row{display:flex; align-items:center; gap:10px; margin-top:10px; font-size:12px; color:var(--ink-soft);}
+  .slider-row input{flex:1;}
+  .hint{font-size:11.5px; color:var(--ink-soft); margin-top:8px; line-height:1.6;}
+
+  /* ---- Styling screen ---- */
+  .stage-wrap{padding:10px 16px 8px; display:flex; align-items:center; justify-content:center; gap:10px;}
+  .stage{
+    position:relative; height:56vh; width:auto; aspect-ratio:9/16; max-width:78%;
+    background:var(--white);
+    border-radius:var(--radius); overflow:hidden; border:1px solid var(--line); box-shadow:var(--shadow);
+    touch-action:none;
+  }
+  .stage-side-actions{display:flex; flex-direction:column; gap:10px; flex:0 0 auto;}
+  .icon-btn{
+    width:42px; height:42px; border-radius:50%; border:1px solid var(--line); background:var(--white);
+    font-size:17px; display:flex; align-items:center; justify-content:center; box-shadow:var(--shadow); cursor:pointer;
+  }
+  .icon-btn.primary{background:var(--sage); border-color:var(--sage);}
+  .stage .placeholder{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:10px; color:var(--ink-soft); font-size:13px; text-align:center; padding:20px;
+  }
+  .layer{
+    position:absolute; touch-action:none; user-select:none; -webkit-user-select:none;
+  }
+  .layer img{width:100%; height:100%; display:block; object-fit:contain; pointer-events:none; -webkit-user-drag:none;}
+  .layer.selected{outline:2px dashed var(--sage); outline-offset:3px;}
+  .layer .handle{
+    position:absolute; right:-11px; bottom:-11px; width:26px; height:26px; border-radius:50%;
+    background:var(--sage); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,0.25);
+    display:none; touch-action:none;
+  }
+  .layer .remove{
+    position:absolute; left:-11px; top:-11px; width:24px; height:24px; border-radius:50%;
+    background:var(--blush); border:2px solid #fff; color:#fff; font-size:13px; display:none;
+    align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,0.25);
+  }
+  .layer.selected .handle, .layer.selected .remove{display:flex;}
+
+  #stylingMain{display:flex; flex-direction:column; overflow:hidden;}
+  .stage-fixed{flex:0 0 auto;}
+  .picker-scroll{flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+
+
+  .drawer-cats{display:flex; gap:7px; overflow-x:auto; padding-bottom:10px;}
+  .drawer-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-height:38vh; overflow-y:auto;}
+  .drawer-grid .mini{
+    aspect-ratio:1/1; border-radius:10px; border:1px solid var(--line); background:var(--white);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;
+  }
+  .drawer-grid .mini img{width:100%; height:100%; object-fit:contain; padding:5px;}
+
+  /* ---- Favorites ---- */
+  .fav-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; padding:14px 16px 100px;}
+  .fav-card{
+    border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--line); background:var(--white);
+    cursor:pointer; box-shadow:var(--shadow); position:relative;
+  }
+  .fav-card img{width:100%; aspect-ratio:9/13; object-fit:cover; display:block;}
+  .fav-card .fav-title{padding:8px 10px 10px; font-size:12.5px; font-weight:700;}
+  .fav-card .fav-del{
+    position:absolute; top:6px; right:6px; width:24px; height:24px; border-radius:50%;
+    background:rgba(43,38,34,0.55); color:#fff; border:none; font-size:12px; cursor:pointer;
+  }
+
+  .toast{
+    position:absolute; bottom:90px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:10px 18px; border-radius:30px; font-size:12.5px; font-weight:600; opacity:0; pointer-events:none;
+    transition:opacity .25s; z-index:80; white-space:nowrap;
+  }
+  .toast.show{opacity:1;}
+
+  .stitch{border-bottom:1px dashed var(--line); margin:16px 0;}
+</style>
+</head>
+<body>
+<div id="phone">
+
+  <!-- ===== CLOSET SCREEN ===== -->
+  <div class="screen active" id="screen-closet">
+    <header class="top">
+      <div class="eyebrow">MY CLOSET</div>
+      <h1 class="display">옷장</h1>
+      <div class="sub">가진 옷을 카테고리별로 정리해요</div>
+    </header>
+    <main>
+      <div class="chiprow" id="closetChips"></div>
+      <div class="grid" id="closetGrid"></div>
+    </main>
+    <button class="fab" id="btnAddItem">+</button>
+  </div>
+
+  <!-- ===== STYLING SCREEN ===== -->
+  <div class="screen" id="screen-styling">
+    <header class="top">
+      <div class="eyebrow">GET DRESSED</div>
+      <h1 class="display">스타일링</h1>
+      <div class="sub">내 사진 위에 옷을 올려 코디해봐요</div>
+    </header>
+    <main id="stylingMain">
+      <div class="stage-fixed">
+        <div class="stage-wrap">
+          <div class="stage" id="stage">
+            <div class="placeholder" id="stagePlaceholder">
+              <span style="font-size:28px;">🧍</span>
+              <div>먼저 내 사진을 등록하면<br>드래그로 코디를 만들 수 있어요</div>
+              <label class="btn btn-primary" id="btnAddMyPhoto" style="width:auto; padding:10px 18px; margin-top:6px; cursor:pointer;">
+                내 사진 등록
+                <input type="file" accept="image/*" id="fileMyPhoto" style="display:none;">
+              </label>
+            </div>
+          </div>
+          <div class="stage-side-actions">
+            <button class="icon-btn" id="btnResetStage" title="초기화">♻️</button>
+            <button class="icon-btn primary" id="btnSaveFav" title="즐겨찾기 저장">⭐</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="picker-scroll">
+        <label class="field-label" style="padding:0 16px; margin:10px 0 6px;">👇 옷 고르기 — 탭하면 옷 위에 올라가요 (드래그로 위치, 초록 손잡이로 크기 조절)</label>
+        <div class="chiprow" id="stylingChips"></div>
+        <div class="grid" id="stylingPickerGrid" style="padding:0 16px 24px;"></div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ===== FAVORITES SCREEN ===== -->
+  <div class="screen" id="screen-favorites">
+    <header class="top">
+      <div class="eyebrow">SAVED LOOKS</div>
+      <h1 class="display">즐겨찾기</h1>
+      <div class="sub">마음에 들었던 코디 모음</div>
+    </header>
+    <main>
+      <div class="fav-grid" id="favGrid"></div>
+    </main>
+  </div>
+
+  <!-- ===== CALENDAR SCREEN ===== -->
+  <div class="screen" id="screen-calendar">
+    <header class="top">
+      <div class="eyebrow">OUTFIT LOG</div>
+      <h1 class="display">캘린더</h1>
+      <div class="sub">어떤 날 무슨 옷을 입었는지 기록해요</div>
+    </header>
+    <main>
+      <div class="cal-nav" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px 4px;">
+        <button class="tool-btn" id="calPrev">‹ 이전</button>
+        <div id="calTitle" style="font-weight:700; font-size:15px;"></div>
+        <button class="tool-btn" id="calNext">다음 ›</button>
+      </div>
+      <div id="calWeekdays" style="display:grid; grid-template-columns:repeat(7,1fr); padding:10px 14px 0; font-size:11px; color:var(--ink-soft); text-align:center; font-weight:700;"></div>
+      <div id="calGrid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:5px; padding:6px 14px 100px;"></div>
+    </main>
+  </div>
+
+  <nav class="tabbar">
+    <button data-tab="closet" class="active"><span class="ic">👔</span>옷장</button>
+    <button data-tab="styling"><span class="ic">✨</span>스타일링</button>
+    <button data-tab="favorites"><span class="ic">⭐</span>즐겨찾기</button>
+    <button data-tab="calendar"><span class="ic">📅</span>캘린더</button>
+  </nav>
+
+  <!-- ===== ADD ITEM OVERLAY ===== -->
+  <div class="overlay" id="overlayAdd">
+    <div class="sheet" style="position:relative;">
+      <div class="sheet-head"><div class="grabber"></div><h2>옷 등록하기</h2><button id="closeAdd">닫기</button></div>
+      <div class="sheet-body" id="addBody">
+        <label class="field-label">카테고리</label>
+        <div class="cat-select" id="catSelect"></div>
+
+        <div id="addStep1">
+          <label class="field-label">사진</label>
+          <div class="upload-row">
+            <label><span class="ic">📷</span>카메라로 찍기<input type="file" accept="image/*" capture="environment" id="fileCamera"></label>
+            <label><span class="ic">🖼️</span>사진 앨범에서<input type="file" accept="image/*" id="fileGallery"></label>
+          </div>
+        </div>
+
+        <div id="addStep2" style="display:none;">
+          <label class="field-label">배경 정리 (선택)</label>
+          <div class="editor-canvas-wrap"><canvas id="editCanvas"></canvas></div>
+          <div class="tool-row">
+            <button class="tool-btn active" data-tool="none" id="toolAuto">✨ 자동 배경 제거</button>
+            <button class="tool-btn" data-tool="erase">🧹 배경 지우기</button>
+            <button class="tool-btn" data-tool="restore">↩️ 복원</button>
+            <button class="tool-btn" id="toolUndo">되돌리기</button>
+          </div>
+          <div class="slider-row">브러시 크기 <input type="range" id="brushSize" min="8" max="60" value="24"></div>
+          <div class="hint">✨ 자동 배경 제거는 배경이 <b>단색이거나 단순할 때</b> 가장 잘 작동해요. 완벽하지 않을 수 있으니, 지우기/복원 브러시로 다듬어주세요.</div>
+          <div class="btn-row">
+            <button class="btn btn-soft" id="btnBackStep1">사진 다시 고르기</button>
+            <button class="btn btn-primary" id="btnSaveItem">옷장에 저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===== SAVE FAVORITE NAME OVERLAY ===== -->
+  <div class="overlay" id="overlaySaveFav">
+    <div class="sheet" style="position:relative;">
+      <div class="sheet-head"><div class="grabber"></div><h2>즐겨찾기로 저장</h2><button id="closeSaveFav">닫기</button></div>
+      <div class="sheet-body">
+        <label class="field-label">코디 이름</label>
+        <input id="favNameInput" placeholder="예: 주말 데이트룩" style="width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--line); font-size:14px; background:#fff;">
+        <div class="btn-row"><button class="btn btn-primary" id="confirmSaveFav">저장하기</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CALENDAR DAY OVERLAY ===== -->
+  <div class="overlay" id="overlayCalDay">
+    <div class="sheet" style="position:relative; max-height:80%;">
+      <div class="sheet-head"><div class="grabber"></div><h2 id="calDayTitle">날짜</h2><button id="closeCalDay">닫기</button></div>
+      <div class="sheet-body">
+        <div id="calDayCurrent"></div>
+        <label class="field-label">즐겨찾기에서 고르기</label>
+        <div class="drawer-grid" id="calFavGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const BELT_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;"><path d="M2 12h6"/><path d="M16 12h6"/><rect x="8" y="7" width="8" height="10" rx="1.5"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></svg>';
+  const CATS = [
+    {id:'top_short', label:'상의(반팔)', ic:'👕'},
+    {id:'top_long', label:'상의(긴팔)', ic:'👚'},
+    {id:'bottom', label:'하의', ic:'👖'},
+    {id:'dress', label:'원피스', ic:'👗'},
+    {id:'outer', label:'겉옷', ic:'🧥'},
+    {id:'shoes', label:'신발', ic:'👟'},
+    {id:'underwear', label:'속옷', ic:'🩲'},
+    {id:'accessory', label:'악세사리', ic:'💍'},
+    {id:'perfume', label:'향수', ic:'🧴'},
+    {id:'hat', label:'모자', ic:'🧢'},
+    {id:'belt', label:'벨트', ic: BELT_SVG},
+  ];
+  const catLabel = id => (CATS.find(c=>c.id===id)||{}).label || id;
+
+  let items = [];       // {id, category, src}
+  let favorites = [];    // {id, title, thumb, layers:[{id,type,src,xPct,yPct,wPct,ratio}]}
+  let calendarLog = {};  // {'YYYY-MM-DD': {title, thumb, layers}}
+  let closetFilter = 'all';
+  let drawerFilter = 'all';
+  let pendingCategory = null;
+  let rawUploadImg = null; // Image element currently being edited
+  let editState = null;    // {canvas, ctx, w, h, history:[ImageData]}
+  let activeTool = 'erase';
+
+  // Stage state
+  let stageLayers = []; // {id, type:'photo'|'item', src, xPct, yPct, wPct, ratio}
+  let stageSelected = null;
+
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  function toast(msg){
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer); t._timer = setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+
+  /* ---------------- storage ---------------- */
+  async function loadAll(){
+    try{
+      const r = await window.storage.get('closet-data');
+      if(r && r.value){
+        const d = JSON.parse(r.value);
+        items = d.items||[];
+        favorites = d.favorites||[];
+        calendarLog = d.calendarLog||{};
+        // migration: old single "top" category -> default to top_short
+        let migrated = false;
+        items.forEach(i=>{ if(i.category==='top'){ i.category='top_short'; migrated=true; } });
+        if(migrated){ saveAll(); toast('기존 상의 항목을 "반팔"로 옮겼어요. 필요하면 옷장에서 긴팔로 다시 등록해주세요'); }
+      }
+    }catch(e){ /* first run: no data yet */ }
+  }
+  let saveTimer = null;
+  function saveAll(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async ()=>{
+      try{
+        await window.storage.set('closet-data', JSON.stringify({items, favorites, calendarLog}));
+      }catch(e){ toast('저장에 실패했어요 (용량 초과일 수 있어요)'); }
+    }, 250);
+  }
+
+  /* ---------------- image helpers ---------------- */
+  function fileToImage(file){
+    return new Promise((resolve,reject)=>{
+      const reader = new FileReader();
+      reader.onload = () => { const img = new Image(); img.onload=()=>resolve(img); img.onerror=reject; img.src = reader.result; };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  function drawToCanvas(img, maxDim){
+    let w = img.width, h = img.height;
+    if(w > h && w > maxDim){ h = Math.round(h * maxDim/w); w = maxDim; }
+    else if(h >= w && h > maxDim){ w = Math.round(w * maxDim/h); h = maxDim; }
+    const c = document.createElement('canvas'); c.width=w; c.height=h;
+    const ctx = c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+    return c;
+  }
+  function canvasToDataURL(canvas, type, quality){ return canvas.toDataURL(type||'image/png', quality); }
+
+  // flood-fill background removal starting from border pixels with similar color
+  function autoRemoveBg(ctx, w, h, threshold){
+    const imgData = ctx.getImageData(0,0,w,h);
+    const d = imgData.data;
+    const visited = new Uint8Array(w*h);
+    const stack = [];
+    function idx(x,y){ return y*w+x; }
+    // seed border pixels
+    for(let x=0;x<w;x++){ stack.push(idx(x,0)); stack.push(idx(x,h-1)); }
+    for(let y=0;y<h;y++){ stack.push(idx(0,y)); stack.push(idx(w-1,y)); }
+    const seeds = stack.slice();
+    // sample average border color
+    let sr=0,sg=0,sb=0,cnt=0;
+    seeds.forEach(p=>{ const o=p*4; sr+=d[o]; sg+=d[o+1]; sb+=d[o+2]; cnt++; });
+    sr/=cnt; sg/=cnt; sb/=cnt;
+
+    while(stack.length){
+      const p = stack.pop();
+      if(visited[p]) continue;
+      visited[p]=1;
+      const o = p*4;
+      const r=d[o], g=d[o+1], b=d[o+2];
+      const dist = Math.sqrt((r-sr)*(r-sr)+(g-sg)*(g-sg)+(b-sb)*(b-sb));
+      if(dist > threshold) continue;
+      d[o+3] = 0; // transparent
+      const x = p % w, y = (p - x)/w;
+      if(x>0) stack.push(p-1);
+      if(x<w-1) stack.push(p+1);
+      if(y>0) stack.push(p-w);
+      if(y<h-1) stack.push(p+w);
+    }
+    ctx.putImageData(imgData,0,0);
+  }
+
+  /* ---------------- tabs ---------------- */
+  $$('.tabbar button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $$('.tabbar button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      $$('.screen').forEach(s=>s.classList.remove('active'));
+      $('#screen-'+btn.dataset.tab).classList.add('active');
+      if(btn.dataset.tab==='styling') requestAnimationFrame(renderStage);
+    });
+  });
+
+  /* ---------------- closet render ---------------- */
+  function renderClosetChips(){
+    const wrap = $('#closetChips'); wrap.innerHTML = '';
+    const all = document.createElement('div'); all.className='chip'+(closetFilter==='all'?' active':''); all.textContent='전체';
+    all.onclick = ()=>{ closetFilter='all'; renderClosetChips(); renderClosetGrid(); };
+    wrap.appendChild(all);
+    CATS.forEach(c=>{
+      const el = document.createElement('div');
+      el.className='chip'+(closetFilter===c.id?' active':'');
+      el.innerHTML = `<span>${c.ic}</span><span>${c.label}</span>`;
+      el.onclick = ()=>{ closetFilter=c.id; renderClosetChips(); renderClosetGrid(); };
+      wrap.appendChild(el);
+    });
+  }
+  function renderClosetGrid(){
+    const grid = $('#closetGrid');
+    const list = items.filter(i => closetFilter==='all' || i.category===closetFilter);
+    if(list.length===0){
+      grid.innerHTML = '';
+      const empty = document.createElement('div');
+      empty.className='empty';
+      empty.innerHTML = `<span class="big">🧺</span>아직 등록된 옷이 없어요<br>오른쪽 아래 + 버튼으로 옷을 추가해보세요`;
+      grid.parentElement.querySelector('.empty')?.remove();
+      grid.after(empty);
+    } else {
+      grid.parentElement.querySelector('.empty')?.remove();
+    }
+    grid.innerHTML = list.map(i => `
+      <div class="card" data-id="${i.id}">
+        <img src="${i.src}">
+        <div class="tag">${catLabel(i.category)}</div>
+        <button class="del" data-del="${i.id}">✕</button>
+      </div>`).join('');
+    grid.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = (e)=>{ e.stopPropagation(); const id=b.dataset.del; items = items.filter(i=>i.id!==id); saveAll(); renderClosetGrid(); renderStylingPicker(); };
+    });
+  }
+
+  /* ---------------- add item flow ---------------- */
+  function openAddOverlay(){
+    pendingCategory = pendingCategory || CATS[0].id;
+    $('#catSelect').innerHTML = CATS.map(c=>`<div class="chip ${c.id===pendingCategory?'active':''}" data-cat="${c.id}"><span>${c.ic}</span><span>${c.label}</span></div>`).join('');
+    $('#catSelect').querySelectorAll('.chip').forEach(el=>{
+      el.onclick = ()=>{ pendingCategory = el.dataset.cat; $('#catSelect').querySelectorAll('.chip').forEach(c=>c.classList.remove('active')); el.classList.add('active'); };
+    });
+    $('#addStep1').style.display='block';
+    $('#addStep2').style.display='none';
+    $('#fileCamera').value=''; $('#fileGallery').value='';
+    $('#overlayAdd').classList.add('show');
+  }
+  $('#btnAddItem').onclick = openAddOverlay;
+  $('#closeAdd').onclick = ()=> $('#overlayAdd').classList.remove('show');
+
+  async function handleFileChosen(file){
+    if(!file) return;
+    const img = await fileToImage(file);
+    rawUploadImg = img;
+    $('#addStep1').style.display='none';
+    $('#addStep2').style.display='block';
+    setupEditor(img);
+  }
+  $('#fileCamera').addEventListener('change', e=>handleFileChosen(e.target.files[0]));
+  $('#fileGallery').addEventListener('change', e=>handleFileChosen(e.target.files[0]));
+  $('#btnBackStep1').onclick = ()=>{ $('#addStep1').style.display='block'; $('#addStep2').style.display='none'; };
+
+  function setupEditor(img){
+    const srcCanvas = drawToCanvas(img, 640);
+    const canvas = $('#editCanvas');
+    canvas.width = srcCanvas.width; canvas.height = srcCanvas.height;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(srcCanvas,0,0);
+    editState = {canvas, ctx, w:canvas.width, h:canvas.height, history:[]};
+    pushHistory();
+    activeTool = 'none';
+    $$('#addStep2 .tool-btn').forEach(b=>b.classList.remove('active'));
+    $('#toolAuto').classList.add('active');
+    bindEditorPointer();
+  }
+  function pushHistory(){
+    if(!editState) return;
+    editState.history.push(editState.ctx.getImageData(0,0,editState.w, editState.h));
+    if(editState.history.length>15) editState.history.shift();
+  }
+  $('#toolAuto').onclick = ()=>{
+    if(!editState) return;
+    pushHistory();
+    autoRemoveBg(editState.ctx, editState.w, editState.h, 42);
+    setToolActive('none');
+    toast('자동으로 배경을 지웠어요. 필요하면 다듬어주세요');
+  };
+  $('[data-tool="erase"]').onclick = ()=> setToolActive('erase');
+  $('[data-tool="restore"]').onclick = ()=> setToolActive('restore');
+  $('#toolUndo').onclick = ()=>{
+    if(!editState || editState.history.length<2) return;
+    editState.history.pop();
+    const prev = editState.history[editState.history.length-1];
+    editState.ctx.putImageData(prev,0,0);
+  };
+  function setToolActive(tool){
+    activeTool = tool;
+    $$('#addStep2 .tool-btn').forEach(b=>b.classList.remove('active'));
+    const map = {none:'#toolAuto', erase:'[data-tool="erase"]', restore:'[data-tool="restore"]'};
+    document.querySelector(map[tool])?.classList.add('active');
+  }
+
+  let originalPixels = null; // to allow "restore" to bring back original color
+  function bindEditorPointer(){
+    const canvas = $('#editCanvas');
+    originalPixels = editState.ctx.getImageData(0,0,editState.w,editState.h);
+    let painting = false;
+    function posFromEvent(e){
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width/rect.width, scaleY = canvas.height/rect.height;
+      const cx = (e.touches? e.touches[0].clientX : e.clientX) - rect.left;
+      const cy = (e.touches? e.touches[0].clientY : e.clientY) - rect.top;
+      return {x: cx*scaleX, y: cy*scaleY};
+    }
+    function paintAt(x,y){
+      const r = parseInt($('#brushSize').value,10);
+      const ctx = editState.ctx;
+      if(activeTool==='erase'){
+        ctx.save();
+        ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.clip();
+        ctx.clearRect(x-r-1,y-r-1,r*2+2,r*2+2);
+        ctx.restore();
+      } else if(activeTool==='restore'){
+        // restore original pixels within brush radius
+        const img = ctx.getImageData(0,0,editState.w,editState.h);
+        const orig = originalPixels.data;
+        const R2 = r*r;
+        const minX=Math.max(0,Math.floor(x-r)), maxX=Math.min(editState.w-1, Math.ceil(x+r));
+        const minY=Math.max(0,Math.floor(y-r)), maxY=Math.min(editState.h-1, Math.ceil(y+r));
+        for(let yy=minY; yy<=maxY; yy++){
+          for(let xx=minX; xx<=maxX; xx++){
+            const dx=xx-x, dy=yy-y;
+            if(dx*dx+dy*dy<=R2){
+              const o=(yy*editState.w+xx)*4;
+              img.data[o]=orig[o]; img.data[o+1]=orig[o+1]; img.data[o+2]=orig[o+2]; img.data[o+3]=orig[o+3];
+            }
+          }
+        }
+        ctx.putImageData(img,0,0);
+      }
+    }
+    function start(e){
+      if(activeTool!=='erase' && activeTool!=='restore') return;
+      e.preventDefault(); painting = true; pushHistory();
+      const p = posFromEvent(e); paintAt(p.x,p.y);
+    }
+    function move(e){
+      if(!painting) return; e.preventDefault();
+      const p = posFromEvent(e); paintAt(p.x,p.y);
+    }
+    function end(){ painting=false; }
+    canvas.onpointerdown = start; canvas.onpointermove = move;
+    canvas.onpointerup = end; canvas.onpointerleave = end; canvas.onpointercancel = end;
+  }
+
+  $('#btnSaveItem').onclick = ()=>{
+    if(!editState) return;
+    const dataURL = canvasToDataURL(editState.canvas, 'image/png');
+    items.push({id:uid(), category: pendingCategory, src: dataURL});
+    saveAll();
+    $('#overlayAdd').classList.remove('show');
+    renderClosetChips(); renderClosetGrid(); renderStylingPicker();
+    toast('옷장에 저장했어요');
+  };
+
+  /* ---------------- styling stage ---------------- */
+  function ratioOf(src){
+    return new Promise(res=>{ const im = new Image(); im.onload=()=>res(im.width/im.height); im.src=src; });
+  }
+
+  async function addLayer(type, src, opts){
+    opts = opts || {};
+    const ratio = await ratioOf(src);
+    const layer = {
+      id: uid(), type, src, ratio,
+      xPct: opts.xPct!=null? opts.xPct : (type==='photo'?50:(45+Math.random()*10)),
+      yPct: opts.yPct!=null? opts.yPct : (type==='photo'?50:(38+Math.random()*14)),
+      wPct: opts.wPct!=null? opts.wPct : (type==='photo'?100:38),
+    };
+    stageLayers.push(layer);
+    renderStage();
+    selectLayer(layer.id);
+    return layer;
+  }
+
+  function renderStage(){
+    const stage = $('#stage');
+    const ph = $('#stagePlaceholder');
+    const hasPhoto = stageLayers.some(l=>l.type==='photo');
+    if(ph) ph.style.display = hasPhoto ? 'none' : 'flex';
+    stage.querySelectorAll('.layer').forEach(n=>n.remove());
+    stageLayers.forEach(layer=>{
+      const el = document.createElement('div');
+      el.className = 'layer' + (stageSelected===layer.id?' selected':'');
+      el.dataset.id = layer.id;
+      const wPx = layer.wPct; // percent of stage width
+      const hPct = wPx / layer.ratio * (stage.clientWidth/stage.clientHeight);
+      el.style.width = wPx+'%';
+      el.style.height = hPct+'%';
+      el.style.left = (layer.xPct - wPx/2)+'%';
+      el.style.top = (layer.yPct - hPct/2)+'%';
+      el.style.zIndex = stageLayers.indexOf(layer)+1;
+      el.innerHTML = `<img src="${layer.src}" draggable="false"><div class="remove">✕</div><div class="handle"></div>`;
+      stage.appendChild(el);
+      bindLayerEvents(el, layer);
+    });
+  }
+
+  function selectLayer(id){
+    stageSelected = id;
+    // bring to front
+    const idx = stageLayers.findIndex(l=>l.id===id);
+    if(idx>-1){ const [l] = stageLayers.splice(idx,1); stageLayers.push(l); }
+    renderStage();
+  }
+
+  function bindLayerEvents(el, layer){
+    const stage = $('#stage');
+    el.addEventListener('pointerdown', (e)=>{
+      if(e.target.classList.contains('handle') || e.target.classList.contains('remove')) return;
+      e.preventDefault();
+      selectLayer(layer.id);
+      const startX=e.clientX, startY=e.clientY;
+      const startXPct=layer.xPct, startYPct=layer.yPct;
+      const rect = stage.getBoundingClientRect();
+      function move(ev){
+        const dx = (ev.clientX-startX)/rect.width*100;
+        const dy = (ev.clientY-startY)/rect.height*100;
+        layer.xPct = Math.min(115, Math.max(-15, startXPct+dx));
+        layer.yPct = Math.min(115, Math.max(-15, startYPct+dy));
+        renderStage();
+      }
+      function up(){ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); saveDraft(); }
+      document.addEventListener('pointermove',move);
+      document.addEventListener('pointerup',up);
+    });
+    el.querySelector('.remove').addEventListener('pointerdown', (e)=>{
+      e.stopPropagation(); e.preventDefault();
+      stageLayers = stageLayers.filter(l=>l.id!==layer.id);
+      if(stageSelected===layer.id) stageSelected=null;
+      renderStage(); saveDraft();
+    });
+    el.querySelector('.handle').addEventListener('pointerdown', (e)=>{
+      e.stopPropagation(); e.preventDefault();
+      const rect = stage.getBoundingClientRect();
+      const cx = rect.left + rect.width*layer.xPct/100;
+      const cy = rect.top + rect.height*layer.yPct/100;
+      const startDist = Math.hypot(e.clientX-cx, e.clientY-cy);
+      const startW = layer.wPct;
+      function move(ev){
+        const dist = Math.hypot(ev.clientX-cx, ev.clientY-cy);
+        const factor = dist/Math.max(startDist,1);
+        layer.wPct = Math.min(160, Math.max(8, startW*factor));
+        renderStage();
+      }
+      function up(){ document.removeEventListener('pointermove',move); document.removeEventListener('pointerup',up); saveDraft(); }
+      document.addEventListener('pointermove',move);
+      document.addEventListener('pointerup',up);
+    });
+  }
+
+  let draftTimer = null;
+  function saveDraft(){
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(async ()=>{
+      try{ await window.storage.set('styling-draft', JSON.stringify(stageLayers)); }catch(e){}
+    }, 300);
+  }
+  async function loadDraft(){
+    try{
+      const r = await window.storage.get('styling-draft');
+      if(r && r.value){ stageLayers = JSON.parse(r.value); renderStage(); }
+    }catch(e){}
+  }
+
+  $('#fileMyPhoto').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const img = await fileToImage(file);
+    const c = drawToCanvas(img, 900);
+    const dataURL = canvasToDataURL(c, 'image/jpeg', 0.82);
+    // remove existing photo layer
+    stageLayers = stageLayers.filter(l=>l.type!=='photo');
+    await addLayer('photo', dataURL, {xPct:50, yPct:50, wPct:100});
+    saveDraft();
+    e.target.value = '';
+  });
+
+  $('#btnResetStage').onclick = ()=>{
+    stageLayers = []; stageSelected=null; renderStage(); saveDraft();
+    toast('스테이지를 초기화했어요');
+  };
+
+  function renderStylingPicker(){
+    const catsEl = $('#stylingChips'); catsEl.innerHTML='';
+    const allChip = document.createElement('div'); allChip.className='chip'+(drawerFilter==='all'?' active':''); allChip.textContent='전체';
+    allChip.onclick=()=>{ drawerFilter='all'; renderStylingPicker(); };
+    catsEl.appendChild(allChip);
+    CATS.forEach(c=>{
+      const el=document.createElement('div'); el.className='chip'+(drawerFilter===c.id?' active':'');
+      el.innerHTML=`<span>${c.ic}</span><span>${c.label}</span>`;
+      el.onclick=()=>{ drawerFilter=c.id; renderStylingPicker(); };
+      catsEl.appendChild(el);
+    });
+    const grid = $('#stylingPickerGrid');
+    const list = items.filter(i=> drawerFilter==='all' || i.category===drawerFilter);
+    if(items.length===0){
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;"><span class="big">🧺</span>아직 옷장에 등록된 옷이 없어요<br>옷장 탭에서 먼저 옷을 등록해주세요</div>';
+      return;
+    }
+    if(list.length===0){ grid.innerHTML = '<div class="empty" style="grid-column:1/-1;">이 카테고리에는 등록된 옷이 없어요</div>'; return; }
+    grid.innerHTML = list.map(i=>`
+      <div class="card" data-id="${i.id}" style="cursor:pointer;">
+        <img src="${i.src}">
+        <div class="tag">${catLabel(i.category)}</div>
+      </div>`).join('');
+    grid.querySelectorAll('.card').forEach(m=>{
+      m.onclick = async ()=>{
+        if(!stageLayers.some(l=>l.type==='photo')){ toast('먼저 내 사진을 등록해주세요'); return; }
+        const it = items.find(x=>x.id===m.dataset.id);
+        await addLayer('item', it.src, {});
+        saveDraft();
+        toast('옷을 추가했어요. 드래그해서 위치를 옮겨보세요');
+      };
+    });
+  }
+
+  /* ---------------- favorites ---------------- */
+  $('#btnSaveFav').onclick = ()=>{
+    if(!stageLayers.some(l=>l.type==='photo')){ toast('저장할 코디가 없어요'); return; }
+    $('#favNameInput').value='';
+    $('#overlaySaveFav').classList.add('show');
+  };
+  $('#closeSaveFav').onclick = ()=> $('#overlaySaveFav').classList.remove('show');
+
+  function renderStageToThumb(){
+    return new Promise(resolve=>{
+      const W=300,H=Math.round(300*16/9);
+      const c = document.createElement('canvas'); c.width=W; c.height=H;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#fff'; ctx.fillRect(0,0,W,H);
+      let loaded=0; const total=stageLayers.length;
+      if(total===0){ resolve(c.toDataURL('image/jpeg',0.8)); return; }
+      stageLayers.forEach(layer=>{
+        const im = new Image();
+        im.onload = ()=>{
+          const wPx = W*layer.wPct/100;
+          const hPx = wPx/layer.ratio;
+          const x = W*layer.xPct/100 - wPx/2;
+          const y = H*layer.yPct/100 - hPx/2;
+          ctx.drawImage(im, x, y, wPx, hPx);
+          loaded++; if(loaded===total) resolve(c.toDataURL('image/jpeg',0.82));
+        };
+        im.onerror = ()=>{ loaded++; if(loaded===total) resolve(c.toDataURL('image/jpeg',0.82)); };
+        im.src = layer.src;
+      });
+    });
+  }
+
+  $('#confirmSaveFav').onclick = async ()=>{
+    const title = $('#favNameInput').value.trim() || '이름 없는 코디';
+    const thumb = await renderStageToThumb();
+    favorites.push({id:uid(), title, thumb, layers: JSON.parse(JSON.stringify(stageLayers))});
+    saveAll();
+    $('#overlaySaveFav').classList.remove('show');
+    renderFavGrid();
+    toast('즐겨찾기에 저장했어요');
+  };
+
+  function renderFavGrid(){
+    const grid = $('#favGrid');
+    if(favorites.length===0){
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;"><span class="big">⭐</span>아직 즐겨찾기한 코디가 없어요<br>스타일링 화면에서 코디를 만들고 저장해보세요</div>';
+      return;
+    }
+    grid.innerHTML = favorites.map(f=>`
+      <div class="fav-card" data-id="${f.id}">
+        <img src="${f.thumb}">
+        <div class="fav-title">${f.title}</div>
+        <button class="fav-del" data-del="${f.id}">✕</button>
+      </div>`).join('');
+    grid.querySelectorAll('.fav-card').forEach(card=>{
+      card.addEventListener('click', (e)=>{
+        if(e.target.dataset.del) return;
+        const fav = favorites.find(f=>f.id===card.dataset.id);
+        stageLayers = JSON.parse(JSON.stringify(fav.layers));
+        stageSelected = null;
+        saveDraft();
+        $$('.tabbar button').forEach(b=>b.classList.remove('active'));
+        document.querySelector('[data-tab="styling"]').classList.add('active');
+        $$('.screen').forEach(s=>s.classList.remove('active'));
+        $('#screen-styling').classList.add('active');
+        requestAnimationFrame(renderStage);
+        toast('코디를 불러왔어요');
+      });
+    });
+    grid.querySelectorAll('[data-del]').forEach(b=>{
+      b.onclick = (e)=>{ e.stopPropagation(); favorites = favorites.filter(f=>f.id!==b.dataset.del); saveAll(); renderFavGrid(); };
+    });
+  }
+
+  // deselect when tapping empty stage area
+  $('#stage').addEventListener('pointerdown', (e)=>{
+    if(e.target.id==='stage'){ stageSelected=null; renderStage(); }
+  });
+
+  /* ---------------- calendar ---------------- */
+  let calMonth = new Date(); calMonth.setDate(1);
+  let calSelectedDate = null;
+
+  function dateKey(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+
+  function renderCalendar(){
+    const y = calMonth.getFullYear(), m = calMonth.getMonth();
+    $('#calTitle').textContent = `${y}년 ${m+1}월`;
+    $('#calWeekdays').innerHTML = ['일','월','화','수','목','금','토'].map(w=>`<div>${w}</div>`).join('');
+
+    const firstDow = new Date(y,m,1).getDay();
+    const daysInMonth = new Date(y,m+1,0).getDate();
+    const todayKey = dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+    let cells = '';
+    for(let i=0;i<firstDow;i++) cells += `<div></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const key = dateKey(y,m,d);
+      const log = calendarLog[key];
+      const isToday = key===todayKey;
+      cells += `<div class="cal-day" data-key="${key}" style="
+          aspect-ratio:1/1; border-radius:10px; border:1px solid ${isToday?'var(--sage)':'var(--line)'};
+          background:${log? 'var(--white)':'var(--paper)'}; position:relative; overflow:hidden; cursor:pointer;
+          display:flex; align-items:flex-start; justify-content:flex-start; padding:3px 4px;
+          font-size:10.5px; font-weight:700; color:${isToday?'var(--sage)':'var(--ink-soft)'};">
+          <span style="z-index:2;">${d}</span>
+          ${log?`<img src="${log.thumb}" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.85;">`:''}
+        </div>`;
+    }
+    $('#calGrid').innerHTML = cells;
+    $$('#calGrid .cal-day').forEach(cell=>{
+      cell.onclick = ()=> openCalDay(cell.dataset.key);
+    });
+  }
+  $('#calPrev').onclick = ()=>{ calMonth.setMonth(calMonth.getMonth()-1); renderCalendar(); };
+  $('#calNext').onclick = ()=>{ calMonth.setMonth(calMonth.getMonth()+1); renderCalendar(); };
+
+  function openCalDay(key){
+    calSelectedDate = key;
+    $('#calDayTitle').textContent = key;
+    const log = calendarLog[key];
+    const cur = $('#calDayCurrent');
+    if(log){
+      cur.innerHTML = `
+        <div style="display:flex; gap:10px; align-items:center; border:1px solid var(--line); border-radius:12px; padding:8px; margin-bottom:14px;">
+          <img src="${log.thumb}" style="width:56px; height:70px; object-fit:cover; border-radius:8px;">
+          <div style="flex:1; font-size:13px; font-weight:700;">${log.title}</div>
+          <button class="tool-btn" id="calDayRemove">삭제</button>
+        </div>`;
+      $('#calDayRemove').onclick = ()=>{ delete calendarLog[key]; saveAll(); renderCalendar(); $('#overlayCalDay').classList.remove('show'); toast('기록을 삭제했어요'); };
+    } else {
+      cur.innerHTML = `<div class="hint" style="margin-bottom:10px;">아직 기록된 코디가 없어요. 즐겨찾기에서 골라주세요.</div>`;
+    }
+    const grid = $('#calFavGrid');
+    if(favorites.length===0){
+      grid.innerHTML = '<div class="empty" style="grid-column:1/-1;">즐겨찾기한 코디가 없어요. 스타일링에서 코디를 만들고 즐겨찾기에 저장해보세요.</div>';
+    } else {
+      grid.innerHTML = favorites.map(f=>`<div class="mini" data-id="${f.id}" title="${f.title}"><img src="${f.thumb}"></div>`).join('');
+      grid.querySelectorAll('.mini').forEach(m=>{
+        m.onclick = ()=>{
+          const f = favorites.find(x=>x.id===m.dataset.id);
+          calendarLog[calSelectedDate] = {title:f.title, thumb:f.thumb, layers:f.layers};
+          saveAll(); renderCalendar();
+          $('#overlayCalDay').classList.remove('show');
+          toast('이 날의 코디로 기록했어요');
+        };
+      });
+    }
+    $('#overlayCalDay').classList.add('show');
+  }
+  $('#closeCalDay').onclick = ()=> $('#overlayCalDay').classList.remove('show');
+
+  /* ---------------- init ---------------- */
+  async function init(){
+    await loadAll();
+    renderClosetChips();
+    renderClosetGrid();
+    renderStylingPicker();
+    renderFavGrid();
+    renderCalendar();
+    await loadDraft();
+  }
+  init();
+})();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
